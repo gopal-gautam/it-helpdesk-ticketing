@@ -1,0 +1,319 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Role model
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // requester, agent, team_lead, admin
+  description String?
+  permissions Json? // Array of permission strings
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("roles")
+}
+
+// Team model
+model Team {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  leadId      String?
+  lead        User?    @relation("TeamLead", fields: [leadId], references: [id])
+  members     User[]   @relation("TeamMembers")
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("teams")
+}
+
+// User model
+model User {
+  id                String  @id @default(uuid())
+  email             String  @unique
+  passwordHash      String
+  firstName         String
+  lastName          String
+  isActive          Boolean @default(true)
+  roleId            String?
+  role              Role?   @relation(fields: [roleId], references: [id])
+  teamId            String?
+  team              Team?   @relation("TeamMembers", fields: [teamId], references: [id])
+  avatarUrl         String?
+  notificationPrefs Json? // JSON preferences
+
+  // Relations
+  requestedTickets Ticket[]       @relation("Requester")
+  assignedTickets  Ticket[]       @relation("AssignedAgent")
+  teamLeadTeams    Team[]         @relation("TeamLead")
+  comments         Comment[]
+  internalNotes    InternalNote[]
+  notifications    Notification[]
+  attachments      Attachment[]
+  auditLogs        AuditLog[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  TicketHistory TicketHistory[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// Category model
+model Category {
+  id            String     @id @default(uuid())
+  name          String     @unique
+  description   String?
+  parentId      String?
+  parent        Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  subcategories Category[] @relation("CategoryHierarchy")
+  tickets       Ticket[]
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+// Ticket model
+model Ticket {
+  id           String @id @default(uuid())
+  ticketNumber String @unique // Format: HD-YYYY-XXXXXX
+  subject      String
+  description  String @db.Text
+
+  // Relationships
+  requesterId     String
+  requester       User     @relation("Requester", fields: [requesterId], references: [id])
+  assignedAgentId String?
+  assignedAgent   User?    @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  teamId          String?
+  team            Team?    @relation(fields: [teamId], references: [id])
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id])
+
+  // Priority and Status
+  priority Priority     @default(MEDIUM)
+  status   TicketStatus @default(NEW)
+  source   TicketSource @default(PORTAL)
+
+  // SLA related
+  slaProfileId       String?
+  slaProfile         SLAProfile? @relation(fields: [slaProfileId], references: [id])
+  firstResponseDueAt DateTime?
+  resolutionDueAt    DateTime?
+
+  // Timestamps
+  firstRespondedAt DateTime?
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  comments      Comment[]
+  internalNotes InternalNote[]
+  attachments   Attachment[]
+  ticketHistory TicketHistory[]
+  slaBreaches   SLABreach[]
+  escalations   Escalation[]
+  notifications Notification[]
+
+  @@map("tickets")
+}
+
+// Comment model (public - visible to requester)
+model Comment {
+  id         String   @id @default(uuid())
+  content    String   @db.Text
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("comments")
+}
+
+// Internal Note model (private - agent/lead/admin only)
+model InternalNote {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("internal_notes")
+}
+
+// Attachment model
+model Attachment {
+  id           String   @id @default(uuid())
+  filename     String // Stored filename
+  originalName String // Original upload name
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@map("attachments")
+}
+
+// SLA Profile model
+model SLAProfile {
+  id                 String   @id @default(uuid())
+  name               String
+  priority           Priority
+  firstResponseHours Int // In business hours
+  resolutionHours    Int // In business hours
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tickets Ticket[]
+
+  @@map("sla_profiles")
+}
+
+// SLA Breach model (tracking)
+model SLABreach {
+  id           String    @id @default(uuid())
+  ticketId     String
+  ticket       Ticket    @relation(fields: [ticketId], references: [id])
+  slaProfileId String
+  breachType   String // FIRST_RESPONSE or RESOLUTION
+  breachTime   DateTime  @default(now())
+  notifiedAt   DateTime?
+
+  @@map("sla_breaches")
+}
+
+// Escalation Rule model
+model EscalationRule {
+  id                String    @id @default(uuid())
+  name              String
+  triggerType       String // SLA_BREACH, PRIORITY, etc
+  priorityThreshold Priority?
+  slaBreachType     String?
+  actionType        String // REASSIGN, NOTIFY, INCREASE_PRIORITY
+  notifyUserIds     String[] // Array of user IDs to notify
+  reassignToId      String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  escalations Escalation[]
+
+  @@map("escalation_rules")
+}
+
+// Escalation log model
+model Escalation {
+  id              String         @id @default(uuid())
+  ticketId        String
+  ticket          Ticket         @relation(fields: [ticketId], references: [id])
+  ruleId          String
+  rule            EscalationRule @relation(fields: [ruleId], references: [id])
+  triggeredAt     DateTime       @default(now())
+  actionTaken     String
+  notifiedUserIds String[]
+
+  @@map("escalations")
+}
+
+// Notification model
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  ticketId  String?
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id])
+  type      String // TICKET_CREATED, ASSIGNED, COMMENT, SLA_BREACH, etc
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+// Ticket History model (audit trail)
+model TicketHistory {
+  id        String   @id @default(uuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String // CREATED, UPDATED, STATUS_CHANGED, ASSIGNED, etc
+  fieldName String?
+  oldValue  String?  @db.Text
+  newValue  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("ticket_history")
+}
+
+// Audit Log model (system-wide audit)
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String   @db.Text
+  entityType String // TICKET, USER, CATEGORY, SLA_PROFILE, etc
+  entityId   String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// Enums
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  NEW
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_USER
+  WAITING_ON_THIRD_PARTY
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketSource {
+  PORTAL
+  EMAIL
+  PHONE
+  WALK_IN
+}
