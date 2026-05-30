@@ -37,7 +37,8 @@
       "Bash(python3:*)",
       "Bash(fnm:*)",
       "Bash(export *)",
-      "Update(*)"
+      "Update(*)",
+      "Bash(npm.cmd install *)"
     ]
   }
 }
