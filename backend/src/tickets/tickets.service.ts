@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Priority, TicketStatus, TicketSource } from '@prisma/client';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 
@@ -61,12 +62,15 @@ export class UpdateTicketDto {
 
 @Injectable()
 export class TicketsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogService: AuditLogService
+  ) {}
 
-  async createTicket(dto: CreateTicketDto) {
+  async createTicket(dto: CreateTicketDto, userId: string) {
     const ticketNumber = await this.generateTicketNumber();
 
-    return this.prisma.ticket.create({
+    const ticket = await this.prisma.ticket.create({
       data: {
         ...dto,
         ticketNumber,
@@ -78,6 +82,16 @@ export class TicketsService {
         requester: true,
       },
     });
+
+    await this.auditLogService.log({
+      userId,
+      action: 'TICKET_CREATED',
+      entityType: 'TICKET',
+      entityId: ticket.id,
+      newValues: ticket,
+    });
+
+    return ticket;
   }
 
   async findAll(params: {
@@ -145,15 +159,30 @@ export class TicketsService {
     });
   }
 
-  async updateTicket(id: string, dto: UpdateTicketDto) {
-    return this.prisma.ticket.update({
+  async updateTicket(id: string, dto: UpdateTicketDto, userId: string) {
+    const oldTicket = await this.prisma.ticket.findUnique({ where: { id } });
+
+    const ticket = await this.prisma.ticket.update({
       where: { id },
       data: dto,
     });
+
+    await this.auditLogService.log({
+      userId,
+      action: 'TICKET_UPDATED',
+      entityType: 'TICKET',
+      entityId: id,
+      oldValues: oldTicket,
+      newValues: ticket,
+    });
+
+    return ticket;
   }
 
-  async assignTicket(id: string, agentId: string, teamId?: string) {
-    return this.prisma.ticket.update({
+  async assignTicket(id: string, agentId: string, userId: string, teamId?: string) {
+    const oldTicket = await this.prisma.ticket.findUnique({ where: { id } });
+
+    const ticket = await this.prisma.ticket.update({
       where: { id },
       data: {
         assignedAgentId: agentId,
@@ -161,26 +190,63 @@ export class TicketsService {
         status: TicketStatus.OPEN, // Auto-open when assigned
       },
     });
+
+    await this.auditLogService.log({
+      userId,
+      action: 'TICKET_ASSIGNED',
+      entityType: 'TICKET',
+      entityId: id,
+      oldValues: oldTicket,
+      newValues: ticket,
+    });
+
+    return ticket;
   }
 
-  async resolveTicket(id: string) {
-    return this.prisma.ticket.update({
+  async resolveTicket(id: string, userId: string) {
+    const oldTicket = await this.prisma.ticket.findUnique({ where: { id } });
+
+    const ticket = await this.prisma.ticket.update({
       where: { id },
       data: {
         status: TicketStatus.RESOLVED,
         resolvedAt: new Date(),
       },
     });
+
+    await this.auditLogService.log({
+      userId,
+      action: 'TICKET_RESOLVED',
+      entityType: 'TICKET',
+      entityId: id,
+      oldValues: oldTicket,
+      newValues: ticket,
+    });
+
+    return ticket;
   }
 
-  async closeTicket(id: string) {
-    return this.prisma.ticket.update({
+  async closeTicket(id: string, userId: string) {
+    const oldTicket = await this.prisma.ticket.findUnique({ where: { id } });
+
+    const ticket = await this.prisma.ticket.update({
       where: { id },
       data: {
         status: TicketStatus.CLOSED,
         closedAt: new Date(),
       },
     });
+
+    await this.auditLogService.log({
+      userId,
+      action: 'TICKET_CLOSED',
+      entityType: 'TICKET',
+      entityId: id,
+      oldValues: oldTicket,
+      newValues: ticket,
+    });
+
+    return ticket;
   }
 
   private async generateTicketNumber(): Promise<string> {

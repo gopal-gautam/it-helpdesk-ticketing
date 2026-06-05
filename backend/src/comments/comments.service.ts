@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
 export class CommentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogService: AuditLogService,
+  ) {}
 
   async createComment(dto: CreateCommentDto, userId: string) {
     // Check if ticket exists
@@ -31,7 +35,7 @@ export class CommentsService {
       throw new ForbiddenException('You can only comment on your own tickets');
     }
 
-    return this.prisma.comment.create({
+    const comment = await this.prisma.comment.create({
       data: {
         content: dto.content,
         ticketId: dto.ticketId,
@@ -43,6 +47,16 @@ export class CommentsService {
         },
       },
     });
+
+    await this.auditLogService.log({
+      userId,
+      action: 'COMMENT_CREATED',
+      entityType: 'COMMENT',
+      entityId: comment.id,
+      newValues: comment,
+    });
+
+    return comment;
   }
 
   async findByTicket(ticketId: string) {

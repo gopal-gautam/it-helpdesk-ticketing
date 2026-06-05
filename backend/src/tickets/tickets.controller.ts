@@ -26,7 +26,7 @@ export class TicketsController {
     return this.ticketsService.createTicket({
       ...dto,
       requesterId: req.user.id,
-    });
+    }, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -47,28 +47,28 @@ export class TicketsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateTicketDto) {
-    return this.ticketsService.updateTicket(id, dto);
+  async update(@Request() req, @Param('id') id: string, @Body() dto: UpdateTicketDto) {
+    return this.ticketsService.updateTicket(id, dto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('AGENT', 'TEAM_LEAD', 'ADMIN')
   @Patch(':id/assign')
-  async assign(@Param('id') id: string, @Body() dto: { agentId: string; teamId?: string }) {
-    return this.ticketsService.assignTicket(id, dto.agentId, dto.teamId);
+  async assign(@Request() req, @Param('id') id: string, @Body() dto: { agentId: string; teamId?: string }) {
+    return this.ticketsService.assignTicket(id, dto.agentId, req.user.id, dto.teamId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('AGENT', 'TEAM_LEAD', 'ADMIN')
   @Patch(':id/resolve')
-  async resolve(@Param('id') id: string) {
-    return this.ticketsService.resolveTicket(id);
+  async resolve(@Request() req, @Param('id') id: string) {
+    return this.ticketsService.resolveTicket(id, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('AGENT', 'TEAM_LEAD', 'ADMIN')
   @Patch(':id/close')
-  async close(@Param('id') id: string) {
-    return this.ticketsService.closeTicket(id);
+  async close(@Request() req, @Param('id') id: string) {
+    return this.ticketsService.closeTicket(id, req.user.id);
   }
 }

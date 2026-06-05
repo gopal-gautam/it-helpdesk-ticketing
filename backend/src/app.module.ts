@@ -7,6 +7,9 @@ import { InternalNotesModule } from './internal-notes/internal-notes.module';
 import { CategoriesModule } from './categories/categories.module';
 import { SlaModule } from './sla/sla.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AttachmentsModule } from './attachments/attachments.module';
+import { ReportingModule } from './reporting/reporting.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { NotificationsModule } from './notifications/notifications.module';
     CategoriesModule,
     SlaModule,
     NotificationsModule,
+    AttachmentsModule,
+    ReportingModule,
+    AuditLogModule,
   ],
 })
 export class AppModule {}

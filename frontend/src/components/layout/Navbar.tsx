@@ -3,15 +3,24 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/' },
-  { label: 'Tickets', href: '/tickets' },
-];
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 export function Navbar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+
+  const navItems = [
+    { label: 'Dashboard', href: '/' },
+    { label: 'Tickets', href: '/tickets' },
+  ];
+
+  if (user?.role === 'ADMIN' || user?.role === 'TEAM_LEAD') {
+    navItems.push({ label: 'Reporting', href: '/reporting' });
+  }
+
+  if (user?.role === 'ADMIN') {
+    navItems.push({ label: 'Audit Logs', href: '/audit-logs' });
+  }
 
   return (
     <header className="border-b border-zinc-800/80 bg-zinc-900/40 backdrop-blur-md sticky top-0 z-30">
@@ -27,7 +36,7 @@ export function Navbar() {
           </Link>
 
           <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -44,6 +53,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
+          <NotificationCenter />
           <div className="flex flex-col text-right hidden md:flex">
             <span className="text-sm font-semibold text-white">
               {user?.firstName} {user?.lastName}

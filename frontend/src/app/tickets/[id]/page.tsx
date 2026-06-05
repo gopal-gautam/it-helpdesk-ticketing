@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useAuth } from '@/context/AuthContext';
-import { MessageSquare, FileText, Lock, User, Calendar, AlertCircle } from 'lucide-react';
+import { MessageSquare, FileText, Lock, User, Calendar, AlertCircle, Paperclip, Download, X } from 'lucide-react';
 
 type TicketDetail = {
   id: string;
@@ -26,6 +26,7 @@ type TicketDetail = {
   resolutionDueAt?: string;
   comments: { id: string; content: string; createdAt: string; author: { firstName: string; lastName: string; email: string } }[];
   internalNotes: { id: string; content: string; createdAt: string; author: { firstName: string; lastName: string; email: string } }[];
+  attachments: { id: string; originalName: string; fileSize: number; mimeType: string; createdAt: string; uploadedBy: { firstName: string; lastName: string } }[];
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -54,6 +55,8 @@ export default function TicketDetailPage() {
   const [noteText, setNoteText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     async function fetchTicket() {
@@ -119,6 +122,42 @@ export default function TicketDetailPage() {
     }
   };
 
+  const handleFileUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    setIsUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('ticketId', id as string);
+
+      // Since we are using a custom api client, we need to make sure it handles FormData correctly
+      // I'll use a direct fetch for the upload if the api client doesn't support FormData
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/attachments/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
+      }
+
+      setSelectedFile(null);
+      const updated = await api.get<TicketDetail>(`/tickets/${id}`);
+      setTicket(updated);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
   if (isLoading) return <div className="flex h-screen items-center justify-center bg-zinc-950"><div className="w-12 h-12 rounded-full border-4 border-violet-600/30 border-t-violet-600 animate-spin" /></div>;
   if (error) return <div className="p-8 text-center text-red-400 bg-zinc-950 min-h-screen">{error}</div>;
   if (!ticket) return <div className="p-8 text-center text-zinc-500 bg-zinc-950 min-h-screen">Ticket not found</div>;
@@ -160,6 +199,70 @@ export default function TicketDetailPage() {
                 <CardContent className="space-y-6">
                   <div className="p-4 bg-zinc-900/50 rounded-xl border border-zinc-800 text-zinc-300 whitespace-pre-wrap">
                     {ticket.description}
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="font-medium text-white flex items-center gap-2 text-sm">
+                      <Paperclip size={16} className="text-violet-400" /> Attachments
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {ticket.attachments.length === 0 ? (
+                        <p className="text-xs text-zinc-500 italic col-span-2">No attachments yet.</p>
+                      ) : (
+                        ticket.attachments.map(att => (
+                          <div key={att.id} className="flex items-center justify-between p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <FileText size={14} className="text-zinc-500 flex-shrink-0" />
+                              <span className="truncate text-zinc-300" title={att.originalName}>{att.originalName}</span>
+                            </div>
+                            <a
+                              href={`${process.env.NEXT_PUBLIC_API_URL}/attachments/${att.id}/download`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-white transition-colors"
+                            >
+                              <Download size={14} />
+                            </a>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <form onSubmit={handleFileUpload} className="flex gap-2 mt-4">
+                      <div className="relative flex-1">
+                        <Input
+                          type="file"
+                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                          id="file-upload"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-center"
+                          onClick={() => document.getElementById('file-upload')?.click()}
+                        >
+                          {selectedFile ? selectedFile.name : 'Choose file...'}
+                        </Button>
+                        {selectedFile && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFile(null)}
+                            className="absolute -right-2 -top-2 p-0.5 bg-zinc-800 border border-zinc-700 rounded-full text-zinc-400 hover:text-white"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={!selectedFile || isUploadingFile}
+                      >
+                        {isUploadingFile ? 'Uploading...' : 'Upload'}
+                      </Button>
+                    </form>
                   </div>
 
                   <div className="space-y-4">
