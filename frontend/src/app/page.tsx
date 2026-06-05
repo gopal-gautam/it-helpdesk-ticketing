@@ -1,18 +1,58 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Navbar } from '@/components/layout/Navbar';
+import { api } from '@/lib/api';
+
+type TicketSummary = {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  LOW: 'bg-zinc-800 text-zinc-300 border-zinc-700',
+  MEDIUM: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  HIGH: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  CRITICAL: 'bg-red-500/10 text-red-400 border-red-500/20',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  NEW: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  OPEN: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  IN_PROGRESS: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  WAITING_ON_USER: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  RESOLVED: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  CLOSED: 'bg-zinc-800 text-zinc-400 border-zinc-700',
+  CANCELLED: 'bg-zinc-800 text-zinc-500 border-zinc-700',
+};
 
 export default function HomePage() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [recentTickets, setRecentTickets] = useState<TicketSummary[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      api.get<TicketSummary[]>('/tickets')
+        .then((data) => setRecentTickets(data.slice(0, 5)))
+        .catch(() => {})
+        .finally(() => setTicketsLoading(false));
+    }
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -25,11 +65,8 @@ export default function HomePage() {
     );
   }
 
-  if (!user) {
-    return null; // Will redirect via useEffect
-  }
+  if (!user) return null;
 
-  // Define role badge color mappings
   const getRoleBadgeClass = (role: string) => {
     switch (role.toUpperCase()) {
       case 'ADMIN':
@@ -44,50 +81,25 @@ export default function HomePage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-      {/* Top Header */}
-      <header className="border-b border-zinc-800/80 bg-zinc-900/40 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center font-bold text-white shadow-md shadow-violet-500/10">
-              HD
-            </div>
-            <span className="font-bold tracking-tight text-white hidden sm:block">IT Helpdesk Portal</span>
-          </div>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+      <Navbar />
 
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col text-right hidden md:flex">
-              <span className="text-sm font-semibold text-white">{user.firstName} {user.lastName}</span>
-              <span className="text-xs text-zinc-400">{user.email}</span>
-            </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 rounded-xl transition-all cursor-pointer"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        
-        {/* Welcome Section */}
+
+        {/* Welcome Banner */}
         <div className="mb-10 p-8 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 shadow-xl relative overflow-hidden">
           <div className="absolute top-[-20%] right-[-10%] w-[300px] h-[300px] rounded-full bg-violet-600/10 blur-[80px] pointer-events-none" />
-          
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">
                 Welcome back, {user.firstName}!
               </h1>
               <p className="text-zinc-400 max-w-xl">
-                Ready to manage your tickets? Let's verify that your authentication profile matches the system configurations.
+                Here is your dashboard overview. Use the navigation above to manage tickets, view reports, and more.
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-zinc-500">Access Level:</span>
+              <span className="text-sm font-medium text-zinc-500">Role:</span>
               <span className={`px-3.5 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider ${getRoleBadgeClass(user.role)}`}>
                 {user.role}
               </span>
@@ -95,74 +107,91 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Profile Verification Card */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* User details card */}
-          <div className="lg:col-span-2 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 shadow-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-6 border-b border-zinc-800 pb-4">Auth Profile Details (/api/auth/me)</h3>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">User ID</dt>
-                <dd className="text-sm font-mono text-zinc-300 bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-800/60 truncate">{user.id}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Email</dt>
-                <dd className="text-sm text-zinc-300 font-medium">{user.email}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">First Name</dt>
-                <dd className="text-sm text-zinc-300 font-medium">{user.firstName}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Last Name</dt>
-                <dd className="text-sm text-zinc-300 font-medium">{user.lastName}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Role Assigned</dt>
-                <dd className="text-sm text-zinc-300 font-medium flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse" />
-                  {user.role}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Team Association</dt>
-                <dd className="text-sm text-zinc-300 font-medium">
-                  {user.team || <span className="text-zinc-500 italic">No team assigned</span>}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Created At</dt>
-                <dd className="text-sm text-zinc-300 font-medium">{new Date(user.createdAt).toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Status</dt>
-                <dd className="text-sm text-emerald-400 font-semibold flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  Active Profile
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* Quick links & tips */}
-          <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/80 shadow-xl p-6 flex flex-col justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white mb-4 border-b border-zinc-800 pb-4">Auth Phase Verified</h3>
-              <p className="text-sm text-zinc-400 mb-4 leading-relaxed">
-                Congratulations! Phase 1 of the implementation is fully complete. The backend configuration uses port 3001, handles JWT validation, and the frontend secures session keys within local storage.
-              </p>
-              
-              <div className="p-4 rounded-xl bg-violet-950/20 border border-violet-900/30 text-xs text-violet-300 leading-relaxed mb-4">
-                <strong>Next Step:</strong> Phase 2 focuses on CRUD operations for tickets, RBAC validation endpoints, and internal comment note masking.
-              </div>
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <Link href="/tickets" className="group p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-violet-500/40 shadow-xl transition-all">
+            <div className="w-10 h-10 rounded-xl bg-violet-600/10 flex items-center justify-center mb-3 group-hover:bg-violet-600/20 transition-colors">
+              <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             </div>
-            
-            <div className="pt-4 border-t border-zinc-800/80 text-xs text-zinc-500">
-              Session validation is fully active.
-            </div>
-          </div>
+            <h3 className="font-semibold text-white text-sm">All Tickets</h3>
+            <p className="text-xs text-zinc-500 mt-1">View and manage all support tickets</p>
+          </Link>
 
+          {user.role === 'REQUESTER' && (
+            <Link href="/tickets/new" className="group p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-emerald-500/40 shadow-xl transition-all">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600/10 flex items-center justify-center mb-3 group-hover:bg-emerald-600/20 transition-colors">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+              </div>
+              <h3 className="font-semibold text-white text-sm">New Ticket</h3>
+              <p className="text-xs text-zinc-500 mt-1">Submit a new support request</p>
+            </Link>
+          )}
+
+          {(user.role === 'ADMIN' || user.role === 'TEAM_LEAD') && (
+            <Link href="/tickets" className="group p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-amber-500/40 shadow-xl transition-all">
+              <div className="w-10 h-10 rounded-xl bg-amber-600/10 flex items-center justify-center mb-3 group-hover:bg-amber-600/20 transition-colors">
+                <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </div>
+              <h3 className="font-semibold text-white text-sm">Team Tickets</h3>
+              <p className="text-xs text-zinc-500 mt-1">Monitor your team's workload</p>
+            </Link>
+          )}
+
+          <div className="group p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 shadow-xl">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600/10 flex items-center justify-center mb-3">
+              <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <h3 className="font-semibold text-white text-sm">My Profile</h3>
+            <p className="text-xs text-zinc-500 mt-1">{user.email}</p>
+            <p className="text-xs text-zinc-600 mt-0.5">Team: {user.team || 'Unassigned'}</p>
+          </div>
+        </div>
+
+        {/* Recent Tickets */}
+        <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/80 shadow-xl">
+          <div className="px-6 py-5 border-b border-zinc-800/80 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white">Recent Tickets</h3>
+            <Link href="/tickets" className="text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors">
+              View all →
+            </Link>
+          </div>
+          <div className="divide-y divide-zinc-800/60">
+            {ticketsLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 rounded-full border-4 border-violet-600/30 border-t-violet-600 animate-spin" />
+              </div>
+            ) : recentTickets.length === 0 ? (
+              <div className="py-12 text-center text-zinc-500 text-sm">
+                No tickets found. {user.role === 'REQUESTER' && (
+                  <Link href="/tickets/new" className="text-violet-400 hover:text-violet-300 ml-1">Create your first ticket →</Link>
+                )}
+              </div>
+            ) : (
+              recentTickets.map((ticket) => (
+                <Link
+                  key={ticket.id}
+                  href={`/tickets/${ticket.id}`}
+                  className="flex items-center justify-between px-6 py-4 hover:bg-zinc-800/30 transition-colors"
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-zinc-500">{ticket.ticketNumber}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${PRIORITY_COLORS[ticket.priority] || ''}`}>
+                        {ticket.priority}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${STATUS_COLORS[ticket.status] || ''}`}>
+                        {ticket.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <span className="font-medium text-white text-sm">{ticket.subject}</span>
+                  </div>
+                  <span className="text-xs text-zinc-500 hidden sm:block">
+                    {new Date(ticket.createdAt).toLocaleDateString()}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
         </div>
 
       </main>
