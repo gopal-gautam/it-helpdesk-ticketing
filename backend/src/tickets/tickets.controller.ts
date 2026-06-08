@@ -9,7 +9,7 @@ import {
   Request,
   Query,
 } from '@nestjs/common';
-import { TicketsService, CreateTicketDto, UpdateTicketDto } from './tickets.service';
+import { TicketsService, CreateTicketDto, UpdateTicketDto, BulkActionDto } from './tickets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -37,6 +37,21 @@ export class TicketsController {
       role: req.user.role,
       ...query,
     });
+  }
+
+  // Static routes must precede the ':id' param route.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('AGENT', 'TEAM_LEAD', 'ADMIN')
+  @Get('workload')
+  async workload() {
+    return this.ticketsService.getAgentWorkload();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('AGENT', 'TEAM_LEAD', 'ADMIN')
+  @Post('bulk')
+  async bulk(@Request() req, @Body() dto: BulkActionDto) {
+    return this.ticketsService.bulkAction(dto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -70,5 +85,11 @@ export class TicketsController {
   @Patch(':id/close')
   async close(@Request() req, @Param('id') id: string) {
     return this.ticketsService.closeTicket(id, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Patch(':id/reopen')
+  async reopen(@Request() req, @Param('id') id: string) {
+    return this.ticketsService.reopenTicket(id, req.user.id);
   }
 }

@@ -14,23 +14,28 @@ export function Navbar() {
     { label: 'Tickets', href: '/tickets' },
   ];
 
+  if (user?.role === 'AGENT' || user?.role === 'TEAM_LEAD' || user?.role === 'ADMIN') {
+    navItems.push({ label: 'Workload', href: '/workload' });
+  }
+
   if (user?.role === 'ADMIN' || user?.role === 'TEAM_LEAD') {
     navItems.push({ label: 'Reporting', href: '/reporting' });
   }
 
   if (user?.role === 'ADMIN') {
     navItems.push({ label: 'Audit Logs', href: '/audit-logs' });
+    navItems.push({ label: 'Admin', href: '/admin' });
   }
 
   return (
-    <header className="border-b border-zinc-800/80 bg-zinc-900/40 backdrop-blur-md sticky top-0 z-30">
+    <header className="border-b border-slate-200 bg-white backdrop-blur-md sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center font-bold text-white shadow-md shadow-violet-500/10">
+            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-sm">
               HD
             </div>
-            <span className="font-bold tracking-tight text-white hidden sm:block">
+            <span className="font-bold tracking-tight text-slate-900 hidden sm:block">
               IT Helpdesk Portal
             </span>
           </Link>
@@ -41,9 +46,9 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  pathname === item.href
-                    ? 'text-white bg-zinc-800/80'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+                  (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
+                    ? 'text-slate-900 bg-slate-100'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 {item.label}
@@ -54,15 +59,15 @@ export function Navbar() {
 
         <div className="flex items-center gap-4">
           <NotificationCenter />
-          <div className="flex flex-col text-right hidden md:flex">
-            <span className="text-sm font-semibold text-white">
+          <Link href="/profile" className="flex flex-col text-right hidden md:flex hover:opacity-80 transition-opacity">
+            <span className="text-sm font-semibold text-slate-900">
               {user?.firstName} {user?.lastName}
             </span>
-            <span className="text-xs text-zinc-400">{user?.email}</span>
-          </div>
+            <span className="text-xs text-slate-500">{user?.email}</span>
+          </Link>
           <button
             onClick={logout}
-            className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 rounded-xl transition-all cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-900 border border-slate-200 hover:border-slate-300 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
           >
             Sign Out
           </button>

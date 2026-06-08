@@ -78,9 +78,10 @@ model Category {
   description   String?
   parentId      String?
   parent        Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  subcategories Category[] @relation("CategoryHierarchy")
+  subcategories Category[]    @relation("CategoryHierarchy")
   tickets       Ticket[]
-  isActive      Boolean    @default(true)
+  customFields  CustomField[]
+  isActive      Boolean       @default(true)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -122,14 +123,19 @@ model Ticket {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  // Reopen tracking
+  reopenCount Int       @default(0)
+  reopenedAt  DateTime?
+
   // Relations
-  comments      Comment[]
-  internalNotes InternalNote[]
-  attachments   Attachment[]
-  ticketHistory TicketHistory[]
-  slaBreaches   SLABreach[]
-  escalations   Escalation[]
-  notifications Notification[]
+  comments          Comment[]
+  internalNotes     InternalNote[]
+  attachments       Attachment[]
+  ticketHistory     TicketHistory[]
+  slaBreaches       SLABreach[]
+  escalations       Escalation[]
+  notifications     Notification[]
+  customFieldValues CustomFieldValue[]
 
   @@map("tickets")
 }
@@ -289,6 +295,82 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+// SMTP configuration (admin-editable email settings; single active row used)
+model SmtpConfig {
+  id           String   @id @default(uuid())
+  host         String
+  port         Int      @default(587)
+  secure       Boolean  @default(false) // true for 465, false for other ports
+  username     String?
+  password     String? // encrypted at rest
+  fromEmail    String
+  fromName     String   @default("IT Helpdesk")
+  isActive     Boolean  @default(true)
+  lastTestedAt DateTime?
+  lastTestOk   Boolean?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("smtp_config")
+}
+
+// Business hours (one row per day of week, 0 = Sunday .. 6 = Saturday)
+model BusinessHours {
+  id        String   @id @default(uuid())
+  dayOfWeek Int      @unique // 0-6
+  isOpen    Boolean  @default(true)
+  startTime String   @default("09:00") // HH:mm 24h
+  endTime   String   @default("17:00")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("business_hours")
+}
+
+// Holidays (non-working dates, excluded from SLA business-hour math)
+model Holiday {
+  id        String   @id @default(uuid())
+  date      DateTime @db.Date
+  name      String
+  createdAt DateTime @default(now())
+
+  @@unique([date])
+  @@map("holidays")
+}
+
+// Custom field definition (optionally scoped to a category)
+model CustomField {
+  id         String   @id @default(uuid())
+  name       String   @unique // machine key
+  label      String // display label
+  fieldType  String // TEXT, TEXTAREA, NUMBER, SELECT, CHECKBOX, DATE
+  options    String[] // for SELECT
+  isRequired Boolean  @default(false)
+  categoryId String? // null = applies to all categories
+  category   Category? @relation(fields: [categoryId], references: [id])
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  values CustomFieldValue[]
+
+  @@map("custom_fields")
+}
+
+// Custom field value per ticket
+model CustomFieldValue {
+  id       String      @id @default(uuid())
+  fieldId  String
+  field    CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  ticketId String
+  ticket   Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  value    String      @db.Text
+
+  @@unique([fieldId, ticketId])
+  @@map("custom_field_values")
 }
 
 // Enums

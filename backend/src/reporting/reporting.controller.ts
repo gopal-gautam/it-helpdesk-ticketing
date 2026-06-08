@@ -24,12 +24,25 @@ export class ReportingController {
     const ticketsOverTime = await this.reportingService.getTicketsOverTime();
     const categories = await this.reportingService.getCategoryPerformance();
     const avgResolutionTime = await this.reportingService.getAverageResolutionTime();
+    const firstResponse = await this.reportingService.getFirstResponseMetrics();
+    const reopen = await this.reportingService.getReopenMetrics();
 
     return {
       metrics,
       ticketsOverTime,
       categories,
       avgResolutionTime,
+      firstResponse,
+      reopen,
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('agents')
+  async getAgentPerformance(@Request() req) {
+    if (req.user.role === 'REQUESTER') {
+      throw new ForbiddenException('Requesters cannot access reporting data');
+    }
+    return this.reportingService.getAgentPerformance();
   }
 }

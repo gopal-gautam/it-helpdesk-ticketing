@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Fetch full profile details
       await fetchProfile(response.accessToken);
-      
+      setIsLoading(false);
       router.push('/');
     } catch (error) {
       setIsLoading(false);
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('refreshToken', response.refreshToken);
       
       await fetchProfile(response.accessToken);
-      
+      setIsLoading(false);
       router.push('/');
     } catch (error) {
       setIsLoading(false);

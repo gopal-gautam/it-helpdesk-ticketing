@@ -9,17 +9,17 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
           {label}
         </label>
       )}
       <input
-        className={`w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/20 text-white placeholder-zinc-500 outline-none transition-all ${
-          error ? 'border-red-500/50 focus:border-red-500/80 focus:ring-red-500/20' : ''
+        className={`w-full px-4 py-3 rounded-lg bg-white border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 placeholder-slate-400 outline-none transition-all ${
+          error ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''
         } ${className}`}
         {...props}
       />
-      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

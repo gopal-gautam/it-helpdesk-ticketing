@@ -1,18 +1,78 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { addHours, addDays, isWeekend, setHours, setMinutes, startOfDay, nextMonday } from 'date-fns';
 import { TicketStatus, Priority } from '@prisma/client';
+import { BusinessHoursService } from '../business-hours/business-hours.service';
 
 @Injectable()
 export class SlaService {
   private readonly logger = new Logger(SlaService.name);
 
-  // Business Hours Configuration
+  // Fallback business hours (used when no configurable service is present).
   private readonly BUSINESS_START_HOUR = 9;
   private readonly BUSINESS_END_HOUR = 17;
   private readonly BUSINESS_HOURS_PER_DAY = this.BUSINESS_END_HOUR - this.BUSINESS_START_HOUR;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private businessHours?: BusinessHoursService,
+  ) {}
+
+  /**
+   * Config-driven deadline: respects admin-configured working days/hours and
+   * holidays. Falls back to the static 9–5 weekday calculation when the
+   * business-hours service isn't available.
+   */
+  async calculateBusinessDeadline(startTime: Date, businessHoursRequired: number): Promise<Date> {
+    if (!this.businessHours) return this.calculateDeadline(startTime, businessHoursRequired);
+
+    const { byDay, holidaySet } = await this.businessHours.getCalcConfig();
+
+    const isWorkingDay = (d: Date) => {
+      const key = d.toISOString().slice(0, 10);
+      if (holidaySet.has(key)) return false;
+      const cfg = byDay.get(d.getDay());
+      return cfg ? cfg.isOpen : !isWeekend(d);
+    };
+    const dayStart = (d: Date) => byDay.get(d.getDay())?.startHour ?? this.BUSINESS_START_HOUR;
+    const dayEnd = (d: Date) => byDay.get(d.getDay())?.endHour ?? this.BUSINESS_END_HOUR;
+
+    const nextWorkingDayStart = (d: Date): Date => {
+      let next = addDays(d, 1);
+      while (!isWorkingDay(next)) next = addDays(next, 1);
+      return setMinutes(setHours(next, dayStart(next)), 0);
+    };
+
+    let deadline = new Date(startTime);
+    let remaining = businessHoursRequired;
+
+    while (remaining > 0) {
+      if (!isWorkingDay(deadline)) {
+        deadline = nextWorkingDayStart(deadline);
+        continue;
+      }
+      const startHour = dayStart(deadline);
+      const endHour = dayEnd(deadline);
+      const currentHour = deadline.getHours();
+
+      if (currentHour < startHour) {
+        deadline = setMinutes(setHours(deadline, startHour), 0);
+      } else if (currentHour >= endHour) {
+        deadline = nextWorkingDayStart(deadline);
+        continue;
+      }
+
+      const hoursUntilEnd = endHour - deadline.getHours();
+      const consume = Math.min(remaining, hoursUntilEnd);
+      remaining -= consume;
+      deadline = addHours(deadline, consume);
+
+      if (deadline.getHours() >= endHour && remaining > 0) {
+        deadline = nextWorkingDayStart(deadline);
+      }
+    }
+    return deadline;
+  }
 
   /**
    * Calculates a deadline date based on the number of business hours required.
@@ -81,8 +141,8 @@ export class SlaService {
 
     if (!ticket) throw new Error('Ticket not found');
 
-    const firstResponseDeadline = this.calculateDeadline(ticket.createdAt, profile.firstResponseHours);
-    const resolutionDeadline = this.calculateDeadline(ticket.createdAt, profile.resolutionHours);
+    const firstResponseDeadline = await this.calculateBusinessDeadline(ticket.createdAt, profile.firstResponseHours);
+    const resolutionDeadline = await this.calculateBusinessDeadline(ticket.createdAt, profile.resolutionHours);
 
     return this.prisma.ticket.update({
       where: { id: ticketId },

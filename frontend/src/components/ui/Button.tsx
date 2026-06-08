@@ -6,17 +6,17 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const BASE_CLASS =
-  'font-semibold uppercase tracking-wider rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer';
+  'font-semibold rounded-lg transition-colors active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer';
 
 const VARIANTS: Record<string, string> = {
   primary:
-    'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/25',
-  secondary: 'bg-zinc-800 hover:bg-zinc-700 text-white',
+    'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
+  secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200',
   outline:
-    'border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-900/50 text-zinc-300',
+    'border border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700',
   danger:
-    'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/25',
-  ghost: 'bg-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white',
+    'bg-red-600 hover:bg-red-700 text-white shadow-sm',
+  ghost: 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900',
 };
 
 const SIZES: Record<string, string> = {
