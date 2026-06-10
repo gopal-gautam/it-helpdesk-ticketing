@@ -6,11 +6,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
+  @Roles('ADMIN', 'AGENT', 'TEAM_LEAD')
   findAll(@Query() query: any) {
     return this.usersService.findAll({
       search: query.search,
@@ -21,21 +21,25 @@ export class UsersController {
   }
 
   @Get('roles')
+  @Roles('ADMIN', 'AGENT', 'TEAM_LEAD')
   findRoles() {
     return this.usersService.findAllRoles();
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'AGENT', 'TEAM_LEAD')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
 
   @Post()
+  @Roles('ADMIN')
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADMIN')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
   }

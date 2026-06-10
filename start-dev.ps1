@@ -11,7 +11,7 @@ Start-Sleep -Seconds 5
 
 # Start backend in a new PowerShell window
 Write-Host "🖥️ Launching Backend Server on port 3001..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$ProjectRoot\backend'; npm run start:dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$ProjectRoot\backend'; npm run start"
 
 # Start frontend in a new PowerShell window
 Write-Host "🖥️ Launching Frontend Server on port 3000..." -ForegroundColor Cyan

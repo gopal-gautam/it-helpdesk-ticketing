@@ -222,9 +222,17 @@ export class TicketsService {
         assignedAgent: true,
         category: true,
         team: true,
-        comments: { orderBy: { createdAt: 'asc' } },
-        internalNotes: { orderBy: { createdAt: 'asc' } },
-        attachments: true,
+        comments: {
+          orderBy: { createdAt: 'asc' },
+          include: { author: { select: { firstName: true, lastName: true, email: true } } },
+        },
+        internalNotes: {
+          orderBy: { createdAt: 'asc' },
+          include: { author: { select: { firstName: true, lastName: true, email: true } } },
+        },
+        attachments: {
+          include: { uploadedBy: { select: { firstName: true, lastName: true } } },
+        },
         ticketHistory: { orderBy: { createdAt: 'asc' } },
         customFieldValues: { include: { field: true } },
       },
